@@ -21,3 +21,6 @@ what Cargo uses and it supports comments.
 The old manifests worked by redirecting the stdout of ``ls`` into the desired
 file, and this tool is meant to be invoked the same way to avoid adding
 unnecessary complexity to Buildbot. 
+
+.. _Rust: https://www.rust-lang.org/
+.. _buildmaster: https://github.com/rust-lang/rust-buildbot
