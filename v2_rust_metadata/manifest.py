@@ -34,8 +34,11 @@ def get_arguments():
     global channel
     global url_base
     global remote_dist_dir
+    global listdir
    # Extract arguments from argv
     parser = argparse.ArgumentParser(description='Read inputs')
+    parser.add_argument('-l','--listdir', 
+                        help="examples: /home/build/master/artefacts/")
     parser.add_argument('-m','--component', 
                         help="examples: rust-docs, rustc, cargo")
     parser.add_argument('-n','--channel', 
@@ -48,7 +51,11 @@ def get_arguments():
     component = args['component']
     channel = args['channel']
     remote_dist_dir = args['remote_dist_dir']
-    if "dev-static-rust-lang-org" in args['s3_addy']:
+    if args['listdir']:
+        listdir = args['listdir']
+    else:
+        listdir = '.'
+    if  args['s3_addy'] and "dev-static-rust-lang-org" in args['s3_addy']:
         url_base = "https://dev-static.rust-lang.org"
     else:
         url_base = "https://static.rust-lang.org"
@@ -60,9 +67,9 @@ def print_preamble():
     print 'date = "%s"' % strftime("%Y-%m-%d")
 
 
-def build_metadata(path = os.getcwd()):
+def build_metadata():
     global all_metadata
-    files = [f for f in os.listdir(path) if os.path.isfile(f)]
+    files = [f for f in os.listdir(listdir) if os.path.isfile(f)]
     archives = [f for f in files if f.endswith('.tar.gz')]
     all_metadata = autoviv()
     for a in archives:
