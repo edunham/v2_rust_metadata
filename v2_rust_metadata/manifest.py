@@ -28,7 +28,6 @@ def debug(words):
     # print words
     pass
 
-
 def get_arguments():
     global component
     global channel
@@ -69,7 +68,7 @@ def print_preamble():
 
 def build_metadata():
     global all_metadata
-    files = [f for f in os.listdir(listdir) if os.path.isfile(f)]
+    files = [f for f in os.listdir(listdir) if os.path.isfile(listdir + f)]
     archives = [f for f in files if f.endswith('.tar.gz')]
     all_metadata = autoviv()
     for a in archives:
@@ -80,11 +79,11 @@ def build_metadata():
             this_comp = d[1]
             triple = d[0]
             shasum = ''
-            with open(a) as s:
+            with open(listdir + a) as s:
                 h = hashlib.sha256()
                 h.update(s.read())
                 shasum = h.hexdigest()
-            (version, comp_list) = read_archive(a)
+            (version, comp_list) = read_archive(listdir + a)
             all_metadata[this_comp]['version'] = version
             all_metadata[this_comp]['components'] = comp_list
             # FIXME: Assumption that this script runs on same day as artifacts
