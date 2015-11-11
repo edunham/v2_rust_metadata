@@ -208,6 +208,7 @@ def print_component_metadata(c):
         # Got something bogus like an empty dict or string. Fail over
         # to using the version of rust
         comp_version = rust_version
+    print '    available = true'
     print '    version = "%s"' % comp_version
     trips = all_metadata[c]['triples']
     for t in trips:
