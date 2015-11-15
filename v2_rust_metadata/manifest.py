@@ -52,6 +52,8 @@ def get_arguments():
     remote_dist_dir = args['remote_dist_dir']
     if args['listdir']:
         listdir = args['listdir']
+        if not listdir.endswith('/'):
+            listdir += '/'
     else:
         listdir = '.'
     if  args['s3_addy'] and "dev-static-rust-lang-org" in args['s3_addy']:
