@@ -165,7 +165,7 @@ def print_rust_metadata():
         # Each triple has url & hash, components each with pkg and target,
         # extensions each with pkg & target, and later installers each with
         # type, url, and hash. 
-        print "    [pkg.%s.%s]" % ('rust', t)
+        print "    [pkg.%s.target.%s]" % ('rust', t)
         print '        url = "%s"' % c['triples'][t]['url']
         print '        hash = "%s"' % c['triples'][t]['hash']
         for comp in sorted(c['components']):
@@ -175,7 +175,7 @@ def print_rust_metadata():
             target_missing = False
             # comp is like 'rustc', 'rust-docs', 'cargo'
             # component came in on command line
-            print "        [[pkg.%s.%s.components]]" % (component, t)
+            print "        [[pkg.%s.target.%s.components]]" % (component, t)
             print '            pkg = "%s"' % comp
             # TODO: Handle divergent target triples. Metadata about what the
             # packaging script wants these to be isn't currently handed along
@@ -196,7 +196,7 @@ def print_rust_metadata():
                     # if trip == target, we have already printed it under
                     # 'components', so it's not an extension
                     if trip != target:
-                        exts.append('        [[pkg.%s.%s.extensions]]' % (component, t))
+                        exts.append('        [[pkg.%s.target.%s.extensions]]' % (component, t))
                         exts.append('            pkg = "%s"' % comp)
                         exts.append('            target = "%s"' % trip)
         for e in exts:
@@ -214,7 +214,7 @@ def print_component_metadata(c):
     print '    version = "%s"' % comp_version
     trips = all_metadata[c]['triples']
     for t in trips:
-        print '    [pkg.%s.%s]' % (c, t)
+        print '    [pkg.%s.target.%s]' % (c, t)
         print '        url = "%s"' % trips[t]['url']
         print '        hash = "%s"' % trips[t]['hash']
          
