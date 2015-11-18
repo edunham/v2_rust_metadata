@@ -149,8 +149,14 @@ def print_rust_metadata():
         e = "No rust-" + channel + "-*.tgz packages were found in " + listdir
         raise Exception(e)
     print '    version = "%s"' % rust_version
+    if 'std' in c['triples']:
+        print "    [pkg.%s.std]" % ('rust', std)
+        print '        url = "%s"' % c['triples'][std]['url']
+        print '        hash = "%s"' % c['triples'][std]['hash']
+        c['triples'].remove('std')
+    
+    exts = []
     for t in sorted(c['triples']):
-        exts = []
         # Each triple has url & hash, components each with pkg and target,
         # extensions each with pkg & target, and later installers each with
         # type, url, and hash. 
@@ -220,6 +226,7 @@ def main():
     print_preamble()
     build_metadata()
     all_triples = sorted(list(set(all_triples)))
+    all_triples.remove("src") # src is special
     debug(all_metadata)
     # FIXME: Maybe don't assume we always have Rust? But we probably always
     # have Rust, and its metadata is quite different from components.
