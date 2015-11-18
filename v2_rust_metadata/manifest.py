@@ -179,7 +179,7 @@ def print_rust_metadata():
                 # well.
                 print "        [[pkg.%s.target.%s.components]]" % (component, t)
                 print '            pkg = "%s"' % comp
-                print '            target = "%s"' % target
+                print '            target = "%s"' % t
             elif comp == 'std':
                 # this is a std for some other triple. It's an extension.
                 exts.append('        [[pkg.%s.target.%s.extensions]]' % (component, t))
@@ -189,6 +189,7 @@ def print_rust_metadata():
                 # The package wants this component, it's not a std, and we
                 # can't find a matching triple of the component anywhere.
                 # Demand it at a triple matching the package anyways. 
+                # TODO this case should be impossible. Raise error?
                 print "        [[pkg.%s.target.%s.components]]" % (component, t)
                 print '            pkg = "%s"' % comp
                 print '            target = "%s"' % t
@@ -208,8 +209,8 @@ def print_component_metadata(c):
     trips = all_metadata[c]['triples']
     if 'src' in trips:
         print "    [pkg.%s.src]" % c
-        print '        url = "%s"' % trips[src]['url']
-        print '        hash = "%s"' % trips[src]['hash']
+        print '        url = "%s"' % trips['src']['url']
+        print '        hash = "%s"' % trips['src']['hash']
     for possibility in all_triples:
         print '    [pkg.%s.target.%s]' % (c, possibility)
         if possibility in trips:
