@@ -173,37 +173,33 @@ def print_rust_metadata():
         print '        url = "%s"' % c['triples'][t]['url']
         print '        hash = "%s"' % c['triples'][t]['hash']
         for comp in sorted(c['components']):
-            # Only include alternative triples in extensions if it's a std or
-            # docs package, which we know by string compares on the name :(
-            include_exts = 'std' in comp
-            target_missing = False
-            # comp is like 'rustc', 'rust-docs', 'cargo'
-            # component came in on command line
-            print "        [[pkg.%s.target.%s.components]]" % (component, t)
-            print '            pkg = "%s"' % comp
-            # TODO: Handle divergent target triples. Metadata about what the
-            # packaging script wants these to be isn't currently handed along
-            # from that stage.
             if t in all_metadata[comp]['triples']:
-                target = t
+                # we have the version of the component that matches the
+                # triple. This handles the matching std as a component, as
+                # well.
+                print "        [[pkg.%s.target.%s.components]]" % (component, t)
+                print '            pkg = "%s"' % comp
+                print '            target = "%s"' % target
+            elif comp == 'std':
+                # this is a std for some other triple. It's an extension.
+                exts.append('        [[pkg.%s.target.%s.extensions]]' % (component, t))
+                exts.append('            pkg = "%s"' % comp)
+                exts.append('            target = "%s"' % trip)
             elif len(all_metadata[comp]['triples']) > 0:
+                # The package wants this component, it's not a std, and we
+                # can't find a matching triple of the component anywhere.
+                # If the component is available for any triples, give the
+                # package one of them. 
                 # FIXME this picks the alphabetically last available triple for the
                 # component, because that'll grab x86_64-unknown-linux-gnu when it's
-                # available and I assume that's usually correct
+                # available and it's more repeatable and likely to be right
+                # than picking at random
                 target = sorted(all_metadata[comp]['triples'], reverse=True)[0]
-            else:
-                target_missing = True
-                target = t
-            print '            target = "%s"' % target
-            if include_exts and not target_missing:
-                for trip in sorted(all_metadata[comp]['triples']):
-                    # if trip == target, we have already printed it under
-                    # 'components', so it's not an extension
-                    if trip != target:
-                        exts.append('        [[pkg.%s.target.%s.extensions]]' % (component, t))
-                        exts.append('            pkg = "%s"' % comp)
-                        exts.append('            target = "%s"' % trip)
-        for e in exts:
+                print "        [[pkg.%s.target.%s.components]]" % (component, t)
+                print '            pkg = "%s"' % comp
+                print '            target = "%s"' % target
+
+    for e in exts:
             print e
 
 
@@ -216,6 +212,10 @@ def print_component_metadata(c):
         comp_version = rust_version
     print '    version = "%s"' % comp_version
     trips = all_metadata[c]['triples']
+    if 'src' in trips:
+        print "    [pkg.%s.src]" % c
+        print '        url = "%s"' % trips[src]['url']
+        print '        hash = "%s"' % trips[src]['hash']
     for possibility in all_triples:
         print '    [pkg.%s.target.%s]' % (c, possibility)
         if possibility in trips:
