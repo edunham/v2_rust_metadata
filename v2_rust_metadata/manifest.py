@@ -158,7 +158,7 @@ def print_rust_metadata():
         for comp in sorted(c['components']):
             # Only include alternative triples in extensions if it's a std or
             # docs package, which we know by string compares on the name :(
-            include_exts = 'std' in comp or 'docs' in comp
+            include_exts = 'std' in comp
             target_missing = False
             # comp is like 'rustc', 'rust-docs', 'cargo'
             # component came in on command line
