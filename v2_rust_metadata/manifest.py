@@ -186,13 +186,8 @@ def print_rust_metadata():
                 exts.append('            pkg = "%s"' % comp)
                 exts.append('            target = "%s"' % trip)
             else:
-                # The package wants this component, it's not a std, and we
-                # can't find a matching triple of the component anywhere.
-                # Demand it at a triple matching the package anyways. 
-                # TODO this case should be impossible. Raise error?
-                print "        [[pkg.%s.target.%s.components]]" % (component, t)
-                print '            pkg = "%s"' % comp
-                print '            target = "%s"' % t
+                e = "Component " + comp + '-' + channel + '-' + t + " needed but not found"
+                raise Exception(e)
 
     for e in exts:
             print e
