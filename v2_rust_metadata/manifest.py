@@ -108,7 +108,14 @@ def decompose_name(filename, channel):
     #   rust-docs   -   nightly   -   i686-apple-darwin    .tar.gz
     #    \    /            |              \    /              |
     #   component       channel           triple          extension
-
+    valid_components = [
+                        "cargo",
+                        "rust",
+                        "rust-docs",
+                        "rust-mingw",
+                        "rust-std",
+                        "rustc",
+                        ]
     debug("decomposing " + filename)
     # Strip extension. TODO: handle non-tgz
     if filename.endswith(".tar.gz"):
@@ -117,6 +124,8 @@ def decompose_name(filename, channel):
         return
     # still here? filename looks like rust-docs--i686-apple-darwin
     (component, triple) = [f.strip('-') for f in filename.split(channel)]
+    if component not in valid_components:
+        return
     return (triple, component)
 
 
