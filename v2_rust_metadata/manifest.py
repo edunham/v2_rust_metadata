@@ -70,6 +70,8 @@ def print_preamble():
 
 def build_metadata():
     global all_metadata
+    global all_triples
+    all_triples = []
     files = [f for f in os.listdir(listdir) if os.path.isfile(listdir + f)]
     archives = [f for f in files if f.endswith('.tar.gz')]
     all_metadata = autoviv()
@@ -86,6 +88,7 @@ def build_metadata():
                 h.update(s.read())
                 shasum = h.hexdigest()
             (version, comp_list) = read_archive(listdir + a)
+            all_triples += [triple]
             all_metadata[this_comp]['version'] = version
             all_metadata[this_comp]['components'] = comp_list
             # FIXME: Assumption that this script runs on same day as artifacts
@@ -96,10 +99,6 @@ def build_metadata():
 
 
 def decompose_name(filename, channel):
-    # TODO: There must be a better way! Introspecting tarball names to make
-    # reasonable judgements about component vs triple is currently a
-    # nightmare.
-
     # ASSUMPTIONS: 
     #   * component names do not occur in triples
     #   * the filename ends with .tar.gz
@@ -117,7 +116,7 @@ def decompose_name(filename, channel):
     if channel not in filename:
         return
     # still here? filename looks like rust-docs--i686-apple-darwin
-    (component, triple) = filename.replace(channel, '').split('--')
+    (component, triple) = [f.strip('-') for f in filename.split(channel)]
     return (triple, component)
 
 
@@ -195,32 +194,32 @@ def print_rust_metadata():
 
 def print_component_metadata(c):
     print "[pkg.%s]" % c
-    available = 'true'
     comp_version = all_metadata[c]['version']
     if not isinstance(comp_version, basestring):
         comp_version = rust_version
     if len(comp_version) <= 3:
         comp_version = rust_version
-    if len(all_metadata[c]['triples']) == 0:
-        available = 'false'
-    print '    available = ' + available
-    if available == 'true':
-        print '    version = "%s"' % comp_version
-        trips = all_metadata[c]['triples']
-        for t in trips:
-            print '    [pkg.%s.target.%s]' % (c, t)
-            print '        url = "%s"' % trips[t]['url']
-            print '        hash = "%s"' % trips[t]['hash']
-             
+    print '    version = "%s"' % comp_version
+    trips = all_metadata[c]['triples']
+    for possibility in all_triples:
+        print '    [pkg.%s.target.%s]' % (c, possibility)
+        if possibility in trips:
+            print '        available = true'
+            print '        url = "%s"' % trips[possibility]['url']
+            print '        hash = "%s"' % trips[possibility]['hash']
+        else:
+            print '        available = false'
          
 def main():
     # Not every component (docs, etc.) carries around the rust version string.
     # This global holds the version string for rust proper so it can be filled in
     # on those all_metadata which are missing it.
     global rust_version
+    global all_triples
     get_arguments()
     print_preamble()
     build_metadata()
+    all_triples = sorted(list(set(all_triples)))
     debug(all_metadata)
     # FIXME: Maybe don't assume we always have Rust? But we probably always
     # have Rust, and its metadata is quite different from components.
