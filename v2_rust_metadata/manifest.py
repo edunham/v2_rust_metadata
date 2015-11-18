@@ -195,19 +195,23 @@ def print_rust_metadata():
 
 def print_component_metadata(c):
     print "[pkg.%s]" % c
+    available = 'true'
     comp_version = all_metadata[c]['version']
     if not isinstance(comp_version, basestring):
         comp_version = rust_version
     if len(comp_version) <= 3:
         comp_version = rust_version
-    print '    available = true'
-    print '    version = "%s"' % comp_version
-    trips = all_metadata[c]['triples']
-    for t in trips:
-        print '    [pkg.%s.target.%s]' % (c, t)
-        print '        url = "%s"' % trips[t]['url']
-        print '        hash = "%s"' % trips[t]['hash']
-         
+    if len(all_metadata[c]['triples']) == 0:
+        available = 'false'
+    print '    available = ' + available
+    if available == 'true':
+        print '    version = "%s"' % comp_version
+        trips = all_metadata[c]['triples']
+        for t in trips:
+            print '    [pkg.%s.target.%s]' % (c, t)
+            print '        url = "%s"' % trips[t]['url']
+            print '        hash = "%s"' % trips[t]['hash']
+             
          
 def main():
     # Not every component (docs, etc.) carries around the rust version string.
