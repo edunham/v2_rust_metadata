@@ -114,23 +114,10 @@ def decompose_name(filename, channel):
     # Strip extension. TODO: handle non-tgz
     if filename.endswith(".tar.gz"):
         filename = filename[:-7]
-    pieces = filename.split('-')
-    if not channel in pieces:
+    if channel not in filename:
         return
-    pieces.remove(channel)
-    filename = '-'.join(pieces)
-    # We don't know where the component ends and the triple starts yet. It's
-    # easiest to find the triple by stripping all the words which only occur
-    # in component names.
-    comp_names = ['mingw', 'std', 'rust', 'docs', 'cargo', 'rustc' ]
-    for p in comp_names:
-        if p in pieces:
-            pieces.remove(p)
-    # Component, channel, and extension are gone now. Triple is left.
-    triple = '-'.join(pieces)
-    # Figure out what we stripped when removing strings that looked like
-    # component names
-    component = filename[:-(len(triple) + 1)]
+    # still here? filename looks like rust-docs--i686-apple-darwin
+    (component, triple) = filename.replace(channel, '').split('--')
     return (triple, component)
 
 
