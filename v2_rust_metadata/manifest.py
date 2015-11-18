@@ -193,9 +193,9 @@ def print_rust_metadata():
 def print_component_metadata(c):
     print "[pkg.%s]" % c
     comp_version = all_metadata[c]['version']
-    if len(comp_version) <= 1:
-        # Got something bogus like an empty dict or string. Fail over
-        # to using the version of rust
+    if not isinstance(comp_version, basestring):
+        comp_version = rust_version
+    if len(comp_version) <= 3:
         comp_version = rust_version
     print '    available = true'
     print '    version = "%s"' % comp_version
