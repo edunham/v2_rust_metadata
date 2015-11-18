@@ -158,11 +158,11 @@ def print_rust_metadata():
         e = "No rust-" + channel + "-*.tgz packages were found in " + listdir
         raise Exception(e)
     print '    version = "%s"' % rust_version
-    if 'std' in c['triples']:
-        print "    [pkg.%s.std]" % ('rust', std)
-        print '        url = "%s"' % c['triples'][std]['url']
-        print '        hash = "%s"' % c['triples'][std]['hash']
-        c['triples'].remove('std')
+    if 'src' in c['triples']:
+        print "    [pkg.%s.src]" % ('rust', src)
+        print '        url = "%s"' % c['triples'][src]['url']
+        print '        hash = "%s"' % c['triples'][src]['hash']
+        c['triples'].remove('src')
     
     exts = []
     for t in sorted(c['triples']):
