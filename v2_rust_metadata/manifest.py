@@ -185,19 +185,13 @@ def print_rust_metadata():
                 exts.append('        [[pkg.%s.target.%s.extensions]]' % (component, t))
                 exts.append('            pkg = "%s"' % comp)
                 exts.append('            target = "%s"' % trip)
-            elif len(all_metadata[comp]['triples']) > 0:
+            else:
                 # The package wants this component, it's not a std, and we
                 # can't find a matching triple of the component anywhere.
-                # If the component is available for any triples, give the
-                # package one of them. 
-                # FIXME this picks the alphabetically last available triple for the
-                # component, because that'll grab x86_64-unknown-linux-gnu when it's
-                # available and it's more repeatable and likely to be right
-                # than picking at random
-                target = sorted(all_metadata[comp]['triples'], reverse=True)[0]
+                # Demand it at a triple matching the package anyways. 
                 print "        [[pkg.%s.target.%s.components]]" % (component, t)
                 print '            pkg = "%s"' % comp
-                print '            target = "%s"' % target
+                print '            target = "%s"' % t
 
     for e in exts:
             print e
