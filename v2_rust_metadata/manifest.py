@@ -1,10 +1,12 @@
 #! /usr/bin/env python
 from time import strftime
+from datetime import date, timedelta
 import argparse
 import sys
 import tarfile
 import hashlib
 import os
+import urllib2
 from collections import defaultdict
 
 # This tool builds Rust package manifests in the v2 (.toml) format. Manifests
@@ -148,6 +150,36 @@ def read_archive(a):
     ar.close()
     return (version, comp_list)
 
+def try_getting_cargo(when, triple):
+    global all_metadata
+    if (date.today() - when).days >= 62: 
+        # there hasn't been a Cargo for this triple in over 2 months...
+        # Odds that Cargo older than that will do the right thing are low.  
+        return
+    tryurl = url_base + "/cargo-dist/" + when.strftime("%Y-%m-%d")
+    tryurl += "/cargo-" + channel + '-' + triple + '.tar.gz.sha256'
+    try:
+        response = urllib2.urlopen(tryurl)
+        shahash = response.read().split()[0]
+        all_metadata['cargo']['triples'][triple]['url'] = tryurl[:-7]
+        all_metadata['cargo']['triples'][triple]['hash'] = shahash
+    #FIXME need more sophisticated error handling 
+    except urllib2.HTTPError as e:
+        # server's busted? 
+        pass
+    except urllib2.URLError as e: 
+        # There wasn't a Cargo on that date. Try the day before.
+        try_getting_cargo(when - timedelta(days=1), triple)
+
+
+def get_cargo():
+    if isinstance(all_metadata['cargo']['version'], basestring):
+        # We have a cargo from this build. Where'd that come from?
+        return
+    # Cargo is built daily and dumped into baseurl/cargo-dist/
+    for t in cargo_triples:
+        try_getting_cargo(date.today(), t)
+        
 
 def print_rust_metadata():
     global rust_version
@@ -159,9 +191,9 @@ def print_rust_metadata():
         raise Exception(e)
     print '    version = "%s"' % rust_version
     if 'src' in c['triples']:
-        print "    [pkg.%s.src]" % ('rust', src)
-        print '        url = "%s"' % c['triples'][src]['url']
-        print '        hash = "%s"' % c['triples'][src]['hash']
+        print "    [pkg.%s.src]" % ('rust')
+        print '        url = "%s"' % c['triples']['src']['url']
+        print '        hash = "%s"' % c['triples']['src']['hash']
         c['triples'].remove('src')
     
     exts = []
@@ -221,12 +253,14 @@ def main():
     # on those all_metadata which are missing it.
     global rust_version
     global all_triples
+    global cargo_triples
     get_arguments()
     print_preamble()
     build_metadata()
     all_triples = sorted(list(set(all_triples)))
+    cargo_triples = all_triples
     all_triples.remove("src") # src is special
-    debug(all_metadata)
+    get_cargo() # Make a better effort to get ahold of some Cargo package info
     # FIXME: Maybe don't assume we always have Rust? But we probably always
     # have Rust, and its metadata is quite different from components.
     print_rust_metadata()
