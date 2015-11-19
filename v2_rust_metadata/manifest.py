@@ -112,11 +112,11 @@ def decompose_name(filename, channel):
     #   component       channel           triple          extension
     valid_components = [
                         "cargo",
-                        "rust",
                         "rust-docs",
                         "rust-mingw",
                         "rust-std",
                         "rustc",
+                        "rust",
                         ]
     debug("decomposing " + filename)
     # Strip extension. TODO: handle non-tgz
@@ -128,6 +128,10 @@ def decompose_name(filename, channel):
     (component, triple) = [f.strip('-') for f in filename.split(channel)]
     if component not in valid_components:
         return
+    for c in valid_components:
+        if triple.startswith(c):
+            triple = triple[len(c)+1:]
+            component = c
     return (triple, component)
 
 
