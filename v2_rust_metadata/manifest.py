@@ -72,8 +72,6 @@ def print_preamble():
 
 def build_metadata():
     global all_metadata
-    global all_triples
-    all_triples = []
     files = [f for f in os.listdir(listdir) if os.path.isfile(listdir + f)]
     archives = [f for f in files if f.endswith('.tar.gz')]
     all_metadata = autoviv()
@@ -90,7 +88,6 @@ def build_metadata():
                 h.update(s.read())
                 shasum = h.hexdigest()
             (version, comp_list) = read_archive(listdir + a)
-            all_triples += [triple]
             all_metadata[this_comp]['version'] = version
             all_metadata[this_comp]['components'] = comp_list
             # FIXME: Assumption that this script runs on same day as artifacts
@@ -110,6 +107,8 @@ def decompose_name(filename, channel):
     #   rust-docs   -   nightly   -   i686-apple-darwin    .tar.gz
     #    \    /            |              \    /              |
     #   component       channel           triple          extension
+    component = None
+    triple = None
     valid_components = [
                         "cargo",
                         "rust-docs",
@@ -125,14 +124,16 @@ def decompose_name(filename, channel):
     if channel not in filename:
         return
     # still here? filename looks like rust-docs--i686-apple-darwin
-    (component, triple) = [f.strip('-') for f in filename.split(channel)]
-    if component not in valid_components:
-        return
     for c in valid_components:
-        if triple.startswith(c):
-            triple = triple[len(c)+1:]
+        if filename.startswith(c):
             component = c
-    return (triple, component)
+    for t in all_triples:
+        if filename.endswith(t):
+            triple = t
+    if filename.endswith('src'):
+        triple = 'src'
+    if triple and component:
+        return (triple, component)
 
 
 def read_archive(a):
@@ -198,7 +199,7 @@ def print_rust_metadata():
         print "    [pkg.%s.src]" % ('rust')
         print '        url = "%s"' % c['triples']['src']['url']
         print '        hash = "%s"' % c['triples']['src']['hash']
-        c['triples'].remove('src')
+        del c['triples']['src']
     
     exts = []
     for t in sorted(c['triples']):
@@ -258,12 +259,27 @@ def main():
     global rust_version
     global all_triples
     global cargo_triples
+    all_triples = [ 
+                    "aarch64-unknown-linux-gnu",
+                    "arm-linux-androideabi",
+                    "arm-unknown-linux-gnueabif",
+                    "arm-unknown-linux-gnueabihf",
+                    "i686-apple-darwin",
+                    "i686-pc-windows-gnu",
+                    "i686-pc-windows-msvc",
+                    "i686-unknown-linux-gnu",
+                    "mips-unknown-linux",
+                    "mipsel-unknown-linux",
+                    "x86_64-apple-darwin",
+                    "x86_64-pc-windows-gnu",
+                    "x86_64-pc-windows-msvc",
+                    "x86_64-unknown-linux-gnu",
+                    "x86_64-unknown-linux-musl",
+                    ]
     get_arguments()
     print_preamble()
     build_metadata()
-    all_triples = sorted(list(set(all_triples)))
     cargo_triples = all_triples
-    all_triples.remove("src") # src is special
     get_cargo() # Make a better effort to get ahold of some Cargo package info
     # FIXME: Maybe don't assume we always have Rust? But we probably always
     # have Rust, and its metadata is quite different from components.
