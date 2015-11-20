@@ -222,7 +222,7 @@ def print_rust_metadata():
                 exts.append('        [[pkg.%s.target.%s.extensions]]' % (component, t))
                 exts.append('            pkg = "%s"' % comp)
                 exts.append('            target = "%s"' % trip)
-            elif comp != 'cargo':
+            elif comp != 'cargo' and comp != 'rust-docs':
                 e = "Component " + comp + ' - ' + channel + ' - ' + t + " needed but not found"
                 raise Exception(e)
 
