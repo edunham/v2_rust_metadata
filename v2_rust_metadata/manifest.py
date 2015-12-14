@@ -125,12 +125,12 @@ def decompose_name(filename, channel):
         return
     # still here? filename looks like rust-docs--i686-apple-darwin
     for c in valid_components:
-        if filename.startswith(c):
-            component = c
+        if c in filename:
+            component = c 
     for t in all_triples:
-        if filename.endswith(t):
+        if t in filename:
             triple = t
-    if filename.endswith('src'):
+    if 'src' in filename:
         triple = 'src'
     if triple and component:
         return (triple, component)
