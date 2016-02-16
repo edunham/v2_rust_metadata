@@ -35,10 +35,10 @@ def get_arguments():
     global channel
     global url_base
     global remote_dist_dir
-    global listdir
+    global directory_to_list
    # Extract arguments from argv
     parser = argparse.ArgumentParser(description='Read inputs')
-    parser.add_argument('-l','--listdir', 
+    parser.add_argument('-l','--directory_to_list', 
                         help="examples: /home/build/master/artefacts/")
     parser.add_argument('-m','--component', 
                         help="examples: rust-docs, rustc, cargo")
@@ -52,12 +52,12 @@ def get_arguments():
     component = args['component']
     channel = args['channel']
     remote_dist_dir = args['remote_dist_dir']
-    if args['listdir']:
-        listdir = args['listdir']
-        if not listdir.endswith('/'):
-            listdir += '/'
+    if args['directory_to_list']:
+        directory_to_list = args['directory_to_list']
+        if not directory_to_list.endswith('/'):
+            directory_to_list += '/'
     else:
-        listdir = '.'
+        directory_to_list = '.'
     if  args['s3_addy'] and "dev-static-rust-lang-org" in args['s3_addy']:
         url_base = "https://dev-static.rust-lang.org"
     else:
@@ -72,7 +72,7 @@ def print_preamble():
 
 def build_metadata():
     global all_metadata
-    files = [f for f in os.listdir(listdir) if os.path.isfile(listdir + f)]
+    files = [f for f in os.listdir(directory_to_list) if os.path.isfile(directory_to_list + f)]
     archives = [f for f in files if f.endswith('.tar.gz')]
     all_metadata = autoviv()
     for a in archives:
@@ -80,21 +80,21 @@ def build_metadata():
         # d will return None if the archive is not in the channel we want
         if d:
             # d contains (triple, component)
-            this_comp = d[1]
+            this_component = d[1]
             triple = d[0]
             shasum = ''
-            with open(listdir + a) as s:
+            with open(directory_to_list + a) as s:
                 h = hashlib.sha256()
                 h.update(s.read())
                 shasum = h.hexdigest()
-            (version, comp_list) = read_archive(listdir + a)
-            all_metadata[this_comp]['version'] = version
-            all_metadata[this_comp]['components'] = comp_list
+            (version, comp_list) = read_archive(directory_to_list + a)
+            all_metadata[this_component]['version'] = version
+            all_metadata[this_component]['components'] = comp_list
             # FIXME: Assumption that this script runs on same day as artifacts
             # are placed. Worst case, this could be a day EARLIER, since
             # script output gets uploaded along with other artifacts
             url = url_base + '/' + remote_dist_dir + '/' + strftime("%Y-%m-%d") + '/' + a
-            all_metadata[this_comp]['triples'][triple] = {'url': url,'hash': shasum, 'filename': a}
+            all_metadata[this_component]['triples'][triple] = {'url': url,'hash': shasum, 'filename': a}
 
 
 def decompose_name(filename, channel):
@@ -192,7 +192,7 @@ def print_rust_metadata():
     print "[pkg.rust]"
     rust_version = c['version']
     if not isinstance(rust_version, basestring):
-        e = "No rust-" + channel + "-*.tgz packages were found in " + listdir
+        e = "No rust-" + channel + "-*.tgz packages were found in " + directory_to_list
         raise Exception(e)
     print '    version = "%s"' % rust_version
     if 'src' in c['triples']:
