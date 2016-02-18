@@ -87,7 +87,7 @@ def build_metadata():
                 h = hashlib.sha256()
                 h.update(s.read())
                 shasum = h.hexdigest()
-            (version, comp_list) = read_archive(directory_to_list + a)
+            (version, comp_list) = get_version_and_components_from_archive(directory_to_list + a)
             all_metadata[this_component]['version'] = version
             all_metadata[this_component]['components'] = comp_list
             # FIXME: Assumption that this script runs on same day as artifacts
@@ -118,9 +118,6 @@ def decompose_name(filename, channel):
                         "rust",
                         ]
     debug("decomposing " + filename)
-    # Strip extension. TODO: handle non-tgz
-    if filename.endswith(".tar.gz"):
-        filename = filename[:-7]
     if channel not in filename:
         return
     # still here? filename looks like rust-docs--i686-apple-darwin
@@ -136,7 +133,7 @@ def decompose_name(filename, channel):
         return (triple, component)
 
 
-def read_archive(a):
+def get_version_and_components_from_archive(a):
     version = ''
     comp_list = [] 
     ar = tarfile.open(a, "r:gz")
@@ -155,36 +152,15 @@ def read_archive(a):
     ar.close()
     return (version, comp_list)
 
-def try_getting_cargo(when, triple):
-    global all_metadata
-    if (date.today() - when).days >= 62: 
-        # there hasn't been a Cargo for this triple in over 2 months...
-        # Odds that Cargo older than that will do the right thing are low.  
-        return
-    tryurl = url_base + "/cargo-dist/" + when.strftime("%Y-%m-%d")
-    tryurl += "/cargo-" + channel + '-' + triple + '.tar.gz.sha256'
-    try:
-        response = urllib2.urlopen(tryurl)
-        shahash = response.read().split()[0]
-        all_metadata['cargo']['triples'][triple]['url'] = tryurl[:-7]
-        all_metadata['cargo']['triples'][triple]['hash'] = shahash
-    #FIXME need more sophisticated error handling 
-    except urllib2.HTTPError as e:
-        # server's busted? 
-        pass
-    except urllib2.URLError as e: 
-        # There wasn't a Cargo on that date. Try the day before.
-        try_getting_cargo(when - timedelta(days=1), triple)
-
 
 def get_cargo():
+    global all_metadata
     if isinstance(all_metadata['cargo']['version'], basestring):
         # We have a cargo from this build. Where'd that come from?
         return
     # Cargo is built daily and dumped into baseurl/cargo-dist/
-    for t in cargo_triples:
-        try_getting_cargo(date.today(), t)
-        
+    response = urllib2.urlopen(url_base + "/cargo-dist/cargo-build-date.txt")
+    cargo_date = response.read().split()[0]
 
 def print_rust_metadata():
     global rust_version
@@ -260,22 +236,22 @@ def main():
     global all_triples
     global cargo_triples
     all_triples = [ 
-                    "aarch64-unknown-linux-gnu",
-                    "arm-linux-androideabi",
-                    "arm-unknown-linux-gnueabif",
-                    "arm-unknown-linux-gnueabihf",
-                    "i686-apple-darwin",
-                    "i686-pc-windows-gnu",
-                    "i686-pc-windows-msvc",
-                    "i686-unknown-linux-gnu",
-                    "mips-unknown-linux",
-                    "mipsel-unknown-linux",
-                    "x86_64-apple-darwin",
-                    "x86_64-pc-windows-gnu",
-                    "x86_64-pc-windows-msvc",
-                    "x86_64-unknown-linux-gnu",
-                    "x86_64-unknown-linux-musl",
-                    ]
+        "aarch64-unknown-linux-gnu",
+        "arm-linux-androideabi",
+        "arm-unknown-linux-gnueabif",
+        "arm-unknown-linux-gnueabihf",
+        "i686-apple-darwin",
+        "i686-pc-windows-gnu",
+        "i686-pc-windows-msvc",
+        "i686-unknown-linux-gnu",
+        "mips-unknown-linux",
+        "mipsel-unknown-linux",
+        "x86_64-apple-darwin",
+        "x86_64-pc-windows-gnu",
+        "x86_64-pc-windows-msvc",
+        "x86_64-unknown-linux-gnu",
+        "x86_64-unknown-linux-musl",
+        ]
     get_arguments()
     print_preamble()
     build_metadata()
@@ -283,7 +259,8 @@ def main():
     get_cargo() # Make a better effort to get ahold of some Cargo package info
     # FIXME: Maybe don't assume we always have Rust? But we probably always
     # have Rust, and its metadata is quite different from components.
-    print_rust_metadata()
+    if component != "cargo": 
+        print_rust_metadata()
     for c in sorted(all_metadata):
         if c != 'rust':
             print_component_metadata(c)
