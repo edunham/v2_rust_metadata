@@ -129,17 +129,18 @@ def decompose_name(filename, channel):
     triple = None
     valid_components = [
                         "cargo",
+                        "rust",
                         "rust-docs",
                         "rust-mingw",
                         "rust-std",
                         "rustc",
-                        "rust",
                         ]
     debug("decomposing " + filename)
     if channel not in filename:
         return
-    # still here? filename looks like rust-docs--i686-apple-darwin
-    for c in valid_components:
+    # still here? filename looks like rustc-docs--i686-apple-darwin
+    for c in sorted(valid_components): 
+        # Sorting is to avoid calling a rustc package a rust one
         if c in filename:
             component = c 
     for t in all_triples:
