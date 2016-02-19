@@ -9,6 +9,24 @@ import os
 import urllib2
 from collections import defaultdict
 
+all_triples = [ 
+    "aarch64-unknown-linux-gnu",
+    "arm-linux-androideabi",
+    "arm-unknown-linux-gnueabif",
+    "arm-unknown-linux-gnueabihf",
+    "i686-apple-darwin",
+    "i686-pc-windows-gnu",
+    "i686-pc-windows-msvc",
+    "i686-unknown-linux-gnu",
+    "mips-unknown-linux",
+    "mipsel-unknown-linux",
+    "x86_64-apple-darwin",
+    "x86_64-pc-windows-gnu",
+    "x86_64-pc-windows-msvc",
+    "x86_64-unknown-linux-gnu",
+    "x86_64-unknown-linux-musl",
+    ]
+
 # This tool builds Rust package manifests in the v2 (.toml) format. Manifests
 # are for tools to use when finding and installing Rust and its various
 # optional all_metadata, such as cross-compile-compatible variants of the
@@ -235,23 +253,6 @@ def main():
     global rust_version
     global all_triples
     global cargo_triples
-    all_triples = [ 
-        "aarch64-unknown-linux-gnu",
-        "arm-linux-androideabi",
-        "arm-unknown-linux-gnueabif",
-        "arm-unknown-linux-gnueabihf",
-        "i686-apple-darwin",
-        "i686-pc-windows-gnu",
-        "i686-pc-windows-msvc",
-        "i686-unknown-linux-gnu",
-        "mips-unknown-linux",
-        "mipsel-unknown-linux",
-        "x86_64-apple-darwin",
-        "x86_64-pc-windows-gnu",
-        "x86_64-pc-windows-msvc",
-        "x86_64-unknown-linux-gnu",
-        "x86_64-unknown-linux-musl",
-        ]
     get_arguments()
     print_preamble()
     build_metadata()
