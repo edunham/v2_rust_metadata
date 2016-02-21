@@ -9,7 +9,20 @@ import os
 import urllib2
 from collections import defaultdict
 
-all_triples = [ 
+# This tool builds Rust package manifests in the v2 (.toml) format. Manifests
+# are for tools to use when finding and installing Rust and its various
+# optional all_metadata, such as cross-compile-compatible variants of the
+# standard library. 
+
+# Takes s3_addy, remote_dist_dir, component, channel.
+# Emits a full v2 manifest to stdout.
+
+# m     component
+# n     channel
+# r     remote_dist_dir
+# s     s3_addy
+
+target_list = [ 
     "aarch64-unknown-linux-gnu",
     "arm-linux-androideabi",
     "arm-unknown-linux-gnueabif",
@@ -25,35 +38,68 @@ all_triples = [
     "x86_64-pc-windows-msvc",
     "x86_64-unknown-linux-gnu",
     "x86_64-unknown-linux-musl",
-    ]
+]
 
-# This tool builds Rust package manifests in the v2 (.toml) format. Manifests
-# are for tools to use when finding and installing Rust and its various
-# optional all_metadata, such as cross-compile-compatible variants of the
-# standard library. 
+valid_components = [
+                    "cargo",
+                    "rust",
+                    "rust-docs",
+                    "rust-mingw",
+                    "rust-std",
+                    "rustc",
+                    ]
 
-# Takes s3_addy, remote_dist_dir, component, channel.
-# Emits a full v2 manifest to stdout.
+class Meta:
+    self.component = None
+    self.channel = None
+    self.url_base = None
+    self.remote_dist_dir = None
+    self.directory_to_list = None
+    self.pkgs = {}
+    self.version = ""
 
-# m     component
-# n     channel
-# r     remote_dist_dir
-# s     s3_addy
+    def add_pkg(self, pkg_name, url = None, comp_list = None, version = None):
+        try:
+            # If it hasn't been added yet, this will KeyError
+            if not self.pkgs[pkg_name]['version'] and version:
+                self.pkgs[pkg_name]['version'] = version
+        except KeyError:
+            # TODO make a url if one wasn't provided 
+            self.pkgs[pkg_name] = {}
+            d = {}
+            for t in target_list:
+                d[t] = {}
+            if version:
+                self.pkgs[pkg_name]['version'] = version
+            self.pkgs[pkg_name]['url'] = url
+            self.pkgs[pkg_name]['comp_list'] = comp_list
+            self.pkgs[pkg_name]['target'] = d
 
-def autoviv():
-    # thanks https://en.wikipedia.org/wiki/Autovivification
-    return defaultdict(autoviv)
+    def add_triple(self, pkg_name, triple, url, shasum, filename)
+        try:
+            self.pkgs[pkg_name]['target'][triple] = {'url': url,'hash': shasum, 'filename': filename}
+        except KeyError:
+            pass
+
+    def get_cargo(self):
+        try:
+            if self.pkgs['cargo']['url']:
+                return # Cargo's here already??
+        except KeyError: 
+            self.add_pkg('cargo')
+        # Cargo is built daily and dumped into baseurl/cargo-dist/
+        response = urllib2.urlopen(self.url_base + "/cargo-dist/cargo-build-date.txt")
+        cargo_date = response.read().split()[0]
+        # TODO now that we have the URL where Cargo can be found, can we just
+        # steal its .toml manifest and slurp all that data in, or even
+        # reproduce it verbatim as the cargo section???
+
 
 def debug(words):
     # print words
     pass
 
-def get_arguments():
-    global component
-    global channel
-    global url_base
-    global remote_dist_dir
-    global directory_to_list
+def get_arguments(meta_obj):
    # Extract arguments from argv
     parser = argparse.ArgumentParser(description='Read inputs')
     parser.add_argument('-l','--directory_to_list', 
@@ -67,20 +113,20 @@ def get_arguments():
     parser.add_argument('-s','--s3_addy',
                         help="example: s3://static-rust-lang-org")
     args = vars(parser.parse_args())
-    component = args['component']
-    channel = args['channel']
-    remote_dist_dir = args['remote_dist_dir']
+    meta_obj.component = args['component']
+    meta_obj.channel = args['channel']
+    meta_obj.remote_dist_dir = args['remote_dist_dir']
     if args['directory_to_list']:
-        directory_to_list = args['directory_to_list']
-        if not directory_to_list.endswith('/'):
-            directory_to_list += '/'
+        meta_obj.directory_to_list = args['directory_to_list']
+        if not meta_obj.directory_to_list.endswith('/'):
+            meta_obj.directory_to_list += '/'
     else:
-        directory_to_list = '.'
+        meta_obj.directory_to_list = '.'
     if  args['s3_addy'] and "dev-static-rust-lang-org" in args['s3_addy']:
-        url_base = "https://dev-static.rust-lang.org"
+        meta_obj.url_base = "https://dev-static.rust-lang.org"
     else:
-        url_base = "https://static.rust-lang.org"
-
+        meta_obj.url_base = "https://static.rust-lang.org"
+    return meta_obj
 
 def print_preamble():
     # A manifest will always start with the version and date.
@@ -88,32 +134,27 @@ def print_preamble():
     print 'date = "%s"' % strftime("%Y-%m-%d")
 
 
-def build_metadata():
-    global all_metadata
-    files = [f for f in os.listdir(directory_to_list) if os.path.isfile(directory_to_list + f)]
+def build_metadata(meta_obj):
+    files = [f for f in os.listdir(meta_obj.directory_to_list) if os.path.isfile(meta_obj.directory_to_list + f)]
     archives = [f for f in files if f.endswith('.tar.gz')]
-    all_metadata = autoviv()
-    for a in archives:
-        d = decompose_name(a, channel)
+    for filename in archives:
+        d = decompose_name(filename, channel)
         # d will return None if the archive is not in the channel we want
         if d:
-            # d contains (triple, component)
+            # d contains (triple, component), triple is in target_list
             this_component = d[1]
             triple = d[0]
             shasum = ''
-            with open(directory_to_list + a) as s:
+            with open(directory_to_list + filename) as s:
                 h = hashlib.sha256()
                 h.update(s.read())
                 shasum = h.hexdigest()
-            (version, comp_list) = get_version_and_components_from_archive(directory_to_list + a)
-            all_metadata[this_component]['version'] = version
-            all_metadata[this_component]['components'] = comp_list
-            # FIXME: Assumption that this script runs on same day as artifacts
-            # are placed. Worst case, this could be a day EARLIER, since
-            # script output gets uploaded along with other artifacts
-            url = url_base + '/' + remote_dist_dir + '/' + strftime("%Y-%m-%d") + '/' + a
-            all_metadata[this_component]['triples'][triple] = {'url': url,'hash': shasum, 'filename': a}
-
+            (version, comp_list) = get_version_and_components_from_archive(directory_to_list + filename)
+            # FIXME move url calculation into the meta object
+            url = meta_obj.url_base + '/' + meta_obj.remote_dist_dir + '/' + strftime("%Y-%m-%d") + '/' + filename 
+            meta_obj.add_pkg(this_component, url, comp_list, version)
+            meta_obj.add_triple(this_component, triple, url, shasum, filename)
+    return meta_obj
 
 def decompose_name(filename, channel):
     # ASSUMPTIONS: 
@@ -127,14 +168,6 @@ def decompose_name(filename, channel):
     #   component       channel           triple          extension
     component = None
     triple = None
-    valid_components = [
-                        "cargo",
-                        "rust",
-                        "rust-docs",
-                        "rust-mingw",
-                        "rust-std",
-                        "rustc",
-                        ]
     debug("decomposing " + filename)
     if channel not in filename:
         return
@@ -167,19 +200,9 @@ def get_version_and_components_from_archive(a):
             if path[1] == 'components':
                 f = ar.extractfile(l)
                 comp_list = f.read().split()
-                #debug("all_metadata: " + str(all_metadata))
     ar.close()
     return (version, comp_list)
 
-
-def get_cargo():
-    global all_metadata
-    if isinstance(all_metadata['cargo']['version'], basestring):
-        # We have a cargo from this build. Where'd that come from?
-        return
-    # Cargo is built daily and dumped into baseurl/cargo-dist/
-    response = urllib2.urlopen(url_base + "/cargo-dist/cargo-build-date.txt")
-    cargo_date = response.read().split()[0]
 
 def print_rust_metadata():
     global rust_version
@@ -251,14 +274,11 @@ def main():
     # Not every component (docs, etc.) carries around the rust version string.
     # This global holds the version string for rust proper so it can be filled in
     # on those all_metadata which are missing it.
-    global rust_version
-    global all_triples
-    global cargo_triples
-    get_arguments()
+    m = Meta()
+    m = get_arguments(m)
     print_preamble()
-    build_metadata()
-    cargo_triples = all_triples
-    get_cargo() # Make a better effort to get ahold of some Cargo package info
+    m = build_metadata(m)
+    m.get_cargo() # Make a better effort to get ahold of some Cargo package info
     # FIXME: Maybe don't assume we always have Rust? But we probably always
     # have Rust, and its metadata is quite different from components.
     if component != "cargo": 
@@ -266,7 +286,6 @@ def main():
     for c in sorted(all_metadata):
         if c != 'rust':
             print_component_metadata(c)
-
 
 if __name__ == "__main__":
     main()
