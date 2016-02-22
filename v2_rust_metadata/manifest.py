@@ -48,6 +48,7 @@ valid_components = [
                     "rust-std",
                     "rustc",
                     ]
+valid_components.sort(key=len)
 
 class Meta:
     def __init__(self):
@@ -59,13 +60,15 @@ class Meta:
         self.pkgs = {}
         self.version = ""
 
-    def add_pkg(self, pkg_name, url = None, comp_list = None, version = None):
+    def add_pkg(self, pkg_name, url = None, version = None):
         try:
             # If it hasn't been added yet, this will KeyError
             if not self.pkgs[pkg_name]['version'] and version:
                 self.pkgs[pkg_name]['version'] = version
         except KeyError:
             # TODO make a url if one wasn't provided 
+            if pkg_name not in valid_components:
+                return
             self.pkgs[pkg_name] = {}
             d = {}
             for t in target_list:
@@ -74,14 +77,17 @@ class Meta:
                 self.pkgs[pkg_name]['version'] = version
             self.pkgs[pkg_name]['url'] = url
             self.pkgs[pkg_name]['src'] = {} 
-            self.pkgs[pkg_name]['comp_list'] = comp_list
             self.pkgs[pkg_name]['target'] = d
 
-    def add_triple(self, pkg_name, triple, url, shasum, filename):
+    def add_triple(self, pkg_name, triple, url, shasum, filename, comp_list = None):
         try:
             if triple == 'src':
                 self.pkgs[pkg_name]['src'][triple] = {'url': url,'hash': shasum, 'filename': filename}
+                if comp_list:
+                    self.pkgs[pkg_name]['src'][triple]['components'] = comp_list
             self.pkgs[pkg_name]['target'][triple] = {'url': url,'hash': shasum, 'filename': filename}
+            if comp_list:
+                self.pkgs[pkg_name]['target'][triple]['components'] = comp_list
         except KeyError:
             e = "Tried to add triple " + triple + " to nonexistant package " + pkg_name
             raise Exception(e) 
@@ -95,6 +101,10 @@ class Meta:
         # Cargo is built daily and dumped into baseurl/cargo-dist/
         response = urllib2.urlopen(self.url_base + "/cargo-dist/cargo-build-date.txt")
         cargo_date = response.read().split()[0]
+        #try:
+        #    cargo_toml = urllib2.urlopen(self.url_base + "/cargo-dist/" + cargo_date + "/channel-")
+        
+
         # TODO now that we have the URL where Cargo can be found, can we just
         # steal its .toml manifest and slurp all that data in, or even
         # reproduce it verbatim as the cargo section???
@@ -159,8 +169,15 @@ class Meta:
         self.print_src_info(c) 
         exts = []
         for t in sorted(target_list):
+            target = t
             if self.print_target_info(c, t): # T/F = whether it's available
-                for comp in sorted(self.pkgs['rust']['comp_list']):
+                for comp in sorted(self.pkgs['rust']['target'][target]['components']):
+                    if comp not in valid_components:
+                       try:
+                            (target, comp) = decompose_name(comp, '-')
+                       except: 
+                            e = "components list asked for " + comp + ", wat?"
+                            raise Exception(e) 
                     # the comp_list is from components file in the rust tarball
                     # A *component* has the same target as its parent.
                     # An *extension* has a differing target from its parent.
@@ -168,10 +185,10 @@ class Meta:
                     # rust tarball's component list"
                     listed = False
                     try:
-                        self.pkgs[comp]['target'][t]['url'] # Test availability
+                        self.pkgs[comp]['target'][target]['url'] # Test availability
                         print "        [[pkg.%s.target.%s.components]]" % (c, t)
                         print '            pkg = "%s"' % comp
-                        print '            target = "%s"' % t
+                        print '            target = "%s"' % target
                         listed = True
                     except KeyError:
                         # We do not have that component
@@ -243,8 +260,8 @@ def build_metadata(meta_obj):
             (version, comp_list) = get_version_and_components_from_archive(meta_obj.directory_to_list + filename)
             # FIXME move url calculation into the meta object
             url = meta_obj.url_base + '/' + meta_obj.remote_dist_dir + '/' + strftime("%Y-%m-%d") + '/' + filename 
-            meta_obj.add_pkg(this_component, url, comp_list, version)
-            meta_obj.add_triple(this_component, triple, url, shasum, filename)
+            meta_obj.add_pkg(this_component, url, version)
+            meta_obj.add_triple(this_component, triple, url, shasum, filename, comp_list)
     return meta_obj
 
 def decompose_name(filename, channel):
@@ -263,8 +280,7 @@ def decompose_name(filename, channel):
     if channel not in filename:
         return
     # still here? filename looks like rustc-docs--i686-apple-darwin
-    for c in sorted(valid_components): 
-        # Sorting is to avoid calling a rustc package a rust one
+    for c in valid_components: 
         if c in filename:
             component = c 
     for t in target_list:
