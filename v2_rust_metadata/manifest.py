@@ -38,7 +38,6 @@ target_list = [
     "x86_64-pc-windows-msvc",
     "x86_64-unknown-linux-gnu",
     "x86_64-unknown-linux-musl",
-    "src",
 ]
 
 valid_components = [
@@ -84,7 +83,8 @@ class Meta:
                 self.pkgs[pkg_name]['src'][triple] = {'url': url,'hash': shasum, 'filename': filename}
             self.pkgs[pkg_name]['target'][triple] = {'url': url,'hash': shasum, 'filename': filename}
         except KeyError:
-            pass
+            e = "Tried to add triple " + triple + " to nonexistant package " + pkg_name
+            raise Exception(e) 
 
     def get_cargo(self):
         try:
@@ -125,13 +125,15 @@ class Meta:
     def print_target_info(self, c, t):
         print '    [pkg.%s.target.%s]' % (c, t)
         try:
-            url = self.pkgs[c][t]['url']                
-            sha = self.pkgs[c][t]['hash']                
+            url = self.pkgs[c]['target'][t]['url']                
+            sha = self.pkgs[c]['target'][t]['hash']                
             print '        available = true'
             print '        url = "%s"' % url
             print '        hash = "%s"' % sha
+            return True
         except KeyError:
             print '        available = false'
+            return False
 
     def print_pkg_metadata(self, c):
         print "[pkg.%s]" % c
@@ -157,35 +159,35 @@ class Meta:
         self.print_src_info(c) 
         exts = []
         for t in sorted(target_list):
-            self.print_target_info(c, t)
-            for comp in sorted(self.pkgs['rust']['comp_list']):
-                # the comp_list is from components file in the rust tarball
-                # A *component* has the same target as its parent.
-                # An *extension* has a differing target from its parent.
-                # "extensions are rust-std or rust-docs that aren't in the
-                # rust tarball's component list"
-                listed = False
-                try:
-                    self.pkgs[comp]['target'][t]['url'] # Test availability
-                    print "        [[pkg.%s.target.%s.components]]" % (c, t)
-                    print '            pkg = "%s"' % comp
-                    print '            target = "%s"' % t
-                    listed = True
-                except KeyError:
-                    # We do not have that component
-                    pass
-                if not listed and ('std' in comp or 'docs' in comp):
-                    # this is a std for some other triple. It's an extension.
-                    exts.append('        [[pkg.%s.target.%s.extensions]]' % (c, t))
-                    exts.append('            pkg = "%s"' % comp)
-                    exts.append('            target = "%s"' % t)
-                    listed = True
-                elif not listed and 'cargo' not in comp and 'docs' not in comp:
-                    e = "Component " + comp + ' - ' + self.channel + ' - ' + t + " needed but not found"
-                    # raise Exception(e)
-                    pass
-        for e in exts:
-                print e
+            if self.print_target_info(c, t): # T/F = whether it's available
+                for comp in sorted(self.pkgs['rust']['comp_list']):
+                    # the comp_list is from components file in the rust tarball
+                    # A *component* has the same target as its parent.
+                    # An *extension* has a differing target from its parent.
+                    # "extensions are rust-std or rust-docs that aren't in the
+                    # rust tarball's component list"
+                    listed = False
+                    try:
+                        self.pkgs[comp]['target'][t]['url'] # Test availability
+                        print "        [[pkg.%s.target.%s.components]]" % (c, t)
+                        print '            pkg = "%s"' % comp
+                        print '            target = "%s"' % t
+                        listed = True
+                    except KeyError:
+                        # We do not have that component
+                        pass
+                    if not listed and ('std' in comp or 'docs' in comp):
+                        # this is a std for some other triple. It's an extension.
+                        exts.append('        [[pkg.%s.target.%s.extensions]]' % (c, t))
+                        exts.append('            pkg = "%s"' % comp)
+                        exts.append('            target = "%s"' % t)
+                        listed = True
+                    elif not listed and 'cargo' not in comp and 'docs' not in comp:
+                        e = "Component " + comp + ' - ' + self.channel + ' - ' + t + " needed but not found"
+                        # raise Exception(e)
+                        pass
+                for e in exts:
+                    print e
 
 
 def debug(words):
