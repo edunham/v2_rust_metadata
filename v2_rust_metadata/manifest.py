@@ -51,13 +51,14 @@ valid_components = [
                     ]
 
 class Meta:
-    self.component = None
-    self.channel = None
-    self.url_base = None
-    self.remote_dist_dir = None
-    self.directory_to_list = None
-    self.pkgs = {}
-    self.version = ""
+    def __init__(self):
+        self.component = None
+        self.channel = None
+        self.url_base = None
+        self.remote_dist_dir = None
+        self.directory_to_list = None
+        self.pkgs = {}
+        self.version = ""
 
     def add_pkg(self, pkg_name, url = None, comp_list = None, version = None):
         try:
@@ -77,7 +78,7 @@ class Meta:
             self.pkgs[pkg_name]['comp_list'] = comp_list
             self.pkgs[pkg_name]['target'] = d
 
-    def add_triple(self, pkg_name, triple, url, shasum, filename)
+    def add_triple(self, pkg_name, triple, url, shasum, filename):
         try:
             if triple == 'src':
                 self.pkgs[pkg_name]['src'][triple] = {'url': url,'hash': shasum, 'filename': filename}
@@ -218,18 +219,18 @@ def build_metadata(meta_obj):
     files = [f for f in os.listdir(meta_obj.directory_to_list) if os.path.isfile(meta_obj.directory_to_list + f)]
     archives = [f for f in files if f.endswith('.tar.gz')]
     for filename in archives:
-        d = decompose_name(filename, channel)
+        d = decompose_name(filename, meta_obj.channel)
         # d will return None if the archive is not in the channel we want
         if d:
             # d contains (triple, component), triple is in target_list
             this_component = d[1]
             triple = d[0]
             shasum = ''
-            with open(directory_to_list + filename) as s:
+            with open(meta_obj.directory_to_list + filename) as s:
                 h = hashlib.sha256()
                 h.update(s.read())
                 shasum = h.hexdigest()
-            (version, comp_list) = get_version_and_components_from_archive(directory_to_list + filename)
+            (version, comp_list) = get_version_and_components_from_archive(meta_obj.directory_to_list + filename)
             # FIXME move url calculation into the meta object
             url = meta_obj.url_base + '/' + meta_obj.remote_dist_dir + '/' + strftime("%Y-%m-%d") + '/' + filename 
             meta_obj.add_pkg(this_component, url, comp_list, version)
@@ -256,7 +257,7 @@ def decompose_name(filename, channel):
         # Sorting is to avoid calling a rustc package a rust one
         if c in filename:
             component = c 
-    for t in all_triples:
+    for t in target_list:
         if t in filename:
             triple = t
     if 'src' in filename:
@@ -288,7 +289,10 @@ def main():
     m = Meta()
     m = get_arguments(m)
     m = build_metadata(m)
-    m.get_cargo() # Make a better effort to get ahold of some Cargo package info
+    try:
+        m.get_cargo() # Make a better effort to get ahold of some Cargo package info
+    except:
+        pass
     m.print_metadata()
 
 if __name__ == "__main__":
