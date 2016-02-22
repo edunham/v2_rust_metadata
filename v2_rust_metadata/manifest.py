@@ -74,7 +74,7 @@ class Meta:
             if version:
                 self.pkgs[pkg_name]['version'] = version
             self.pkgs[pkg_name]['url'] = url
-            self.pkgs[pkg_name]['src'] = None
+            self.pkgs[pkg_name]['src'] = {} 
             self.pkgs[pkg_name]['comp_list'] = comp_list
             self.pkgs[pkg_name]['target'] = d
 
@@ -113,10 +113,14 @@ class Meta:
         print 'date = "%s"' % strftime("%Y-%m-%d")
 
     def print_src_info(self, c):
-        if self.pkgs[c]['src']:
+        try:
+            url = self.pkgs[c]['src']['url'] 
+            shasum = self.pkgs[c]['src']['hash'] 
             print "    [pkg.%s.src]" % c
-            print '        url = "%s"' % self.pkgs[c]['src']['url']
-            print '        hash = "%s"' % self.pkgs[c]['src']['hash']
+            print '        url = "%s"' % url
+            print '        hash = "%s"' % shasum
+        except KeyError:
+            pass
 
     def print_target_info(self, c, t):
         print '    [pkg.%s.target.%s]' % (c, t)
@@ -131,8 +135,11 @@ class Meta:
 
     def print_pkg_metadata(self, c):
         print "[pkg.%s]" % c
-        pkg_version = self.pkgs[c]['version']
-        if not isinstance(pkg_version, basestring) or len(pkg_version) <= 3:
+        try:
+            pkg_version = self.pkgs[c]['version']
+            if not isinstance(pkg_version, basestring) or len(pkg_version) <= 3:
+                pkg_version = self.pkgs['rust']['version']
+        except KeyError:
             pkg_version = self.pkgs['rust']['version']
         print '    version = "%s"' % pkg_version
         self.print_src_info(c)
@@ -171,11 +178,12 @@ class Meta:
                     # this is a std for some other triple. It's an extension.
                     exts.append('        [[pkg.%s.target.%s.extensions]]' % (c, t))
                     exts.append('            pkg = "%s"' % comp)
-                    exts.append('            target = "%s"' % trip)
+                    exts.append('            target = "%s"' % t)
                     listed = True
-                elif not listed and comp != 'cargo' and comp != 'rust-docs':
-                    e = "Component " + comp + ' - ' + channel + ' - ' + t + " needed but not found"
-                    raise Exception(e)
+                elif not listed and 'cargo' not in comp and 'docs' not in comp:
+                    e = "Component " + comp + ' - ' + self.channel + ' - ' + t + " needed but not found"
+                    # raise Exception(e)
+                    pass
         for e in exts:
                 print e
 
