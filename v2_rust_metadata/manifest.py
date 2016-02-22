@@ -101,13 +101,16 @@ class Meta:
         # Cargo is built daily and dumped into baseurl/cargo-dist/
         response = urllib2.urlopen(self.url_base + "/cargo-dist/cargo-build-date.txt")
         cargo_date = response.read().split()[0]
-        #try:
+        #try: # TODO read the toml manifest if it's there
         #    cargo_toml = urllib2.urlopen(self.url_base + "/cargo-dist/" + cargo_date + "/channel-")
-        
-
-        # TODO now that we have the URL where Cargo can be found, can we just
-        # steal its .toml manifest and slurp all that data in, or even
-        # reproduce it verbatim as the cargo section???
+        for t in target_list:
+            try:
+                filename = "cargo-" + self.channel + "-" + t + ".tar.gz"
+                url = self.url_base + "/cargo-dist/" + cargo_date + "/" + filename
+                shasum = urllib2.urlopen(url + ".sha256").read().split()[0]
+                self.add_triple('cargo', t, url, shasum, filename)
+            except:
+                pass # No cargo for this date and triple
 
     def print_metadata(self):
         self.print_preamble() 
