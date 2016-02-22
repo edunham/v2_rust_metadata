@@ -38,6 +38,7 @@ target_list = [
     "x86_64-pc-windows-msvc",
     "x86_64-unknown-linux-gnu",
     "x86_64-unknown-linux-musl",
+    "src",
 ]
 
 valid_components = [
@@ -72,11 +73,14 @@ class Meta:
             if version:
                 self.pkgs[pkg_name]['version'] = version
             self.pkgs[pkg_name]['url'] = url
+            self.pkgs[pkg_name]['src'] = None
             self.pkgs[pkg_name]['comp_list'] = comp_list
             self.pkgs[pkg_name]['target'] = d
 
     def add_triple(self, pkg_name, triple, url, shasum, filename)
         try:
+            if triple == 'src':
+                self.pkgs[pkg_name]['src'][triple] = {'url': url,'hash': shasum, 'filename': filename}
             self.pkgs[pkg_name]['target'][triple] = {'url': url,'hash': shasum, 'filename': filename}
         except KeyError:
             pass
@@ -94,10 +98,87 @@ class Meta:
         # steal its .toml manifest and slurp all that data in, or even
         # reproduce it verbatim as the cargo section???
 
+    def print_metadata(self):
+        self.print_preamble() 
+        if self.component != "cargo": 
+            self.print_rust_metadata()
+        for c in sorted(self.pkgs):
+            if c != 'rust':
+                self.print_pkg_metadata(c)
+   
+    def print_preamble(self):
+        # A manifest will always start with the version and date.
+        print 'manifest_version = "2"' 
+        print 'date = "%s"' % strftime("%Y-%m-%d")
+
+    def print_src_info(self, c):
+        if self.pkgs[c]['src']:
+            print "    [pkg.%s.src]" % c
+            print '        url = "%s"' % self.pkgs[c]['src']['url']
+            print '        hash = "%s"' % self.pkgs[c]['src']['hash']
+
+    def print_target_info(self, c, t):
+        print '    [pkg.%s.target.%s]' % (c, t)
+        try:
+            url = self.pkgs[c][t]['url']                
+            sha = self.pkgs[c][t]['hash']                
+            print '        available = true'
+            print '        url = "%s"' % url
+            print '        hash = "%s"' % sha
+        except KeyError:
+            print '        available = false'
+
+    def print_pkg_metadata(self, c):
+        print "[pkg.%s]" % c
+        pkg_version = self.pkgs[c]['version']
+        if not isinstance(pkg_version, basestring) or len(pkg_version) <= 3:
+            pkg_version = self.pkgs['rust']['version']
+        print '    version = "%s"' % pkg_version
+        self.print_src_info(c)
+        for t in sorted(target_list):
+            self.print_target_info(c, t)
+
+    def print_rust_metadata(self):
+        c = 'rust'
+        print "[pkg.rust]"
+        rust_version = self.pkgs['rust']['version']
+        if not isinstance(rust_version, basestring):
+            e = "No rust-" + self.channel + "-*.tgz packages were found in " + self.directory_to_list
+            raise Exception(e)
+        print '    version = "%s"' % rust_version
+        self.print_src_info(c) 
+        exts = []
+        for t in sorted(target_list):
+            self.print_target_info(c, t)
+            for comp in sorted(self.pkgs['rust']['comp_list']):
+                # the comp_list is from components file in the rust tarball
+                # A *component* has the same target as its parent.
+                # An *extension* has a differing target from its parent.
+                # The "components" list contains both?
+                try:
+                    self.pkgs[comp]['target'][t]['url'] # Test availability
+                    print "        [[pkg.%s.target.%s.components]]" % (c, t)
+                    print '            pkg = "%s"' % comp
+                    print '            target = "%s"' % t
+                except KeyError:
+                    # We do not have that component
+                    pass
+                if comp == 'std':
+                    # this is a std for some other triple. It's an extension.
+                    exts.append('        [[pkg.%s.target.%s.extensions]]' % (c, t))
+                    exts.append('            pkg = "%s"' % comp)
+                    exts.append('            target = "%s"' % trip)
+                elif comp != 'cargo' and comp != 'rust-docs':
+                    e = "Component " + comp + ' - ' + channel + ' - ' + t + " needed but not found"
+                    raise Exception(e)
+        for e in exts:
+                print e
+
 
 def debug(words):
     # print words
     pass
+
 
 def get_arguments(meta_obj):
    # Extract arguments from argv
@@ -127,11 +208,6 @@ def get_arguments(meta_obj):
     else:
         meta_obj.url_base = "https://static.rust-lang.org"
     return meta_obj
-
-def print_preamble():
-    # A manifest will always start with the version and date.
-    print 'manifest_version = "2"' 
-    print 'date = "%s"' % strftime("%Y-%m-%d")
 
 
 def build_metadata(meta_obj):
@@ -203,89 +279,13 @@ def get_version_and_components_from_archive(a):
     ar.close()
     return (version, comp_list)
 
-
-def print_rust_metadata():
-    global rust_version
-    c = all_metadata['rust']
-    print "[pkg.rust]"
-    rust_version = c['version']
-    if not isinstance(rust_version, basestring):
-        e = "No rust-" + channel + "-*.tgz packages were found in " + directory_to_list
-        raise Exception(e)
-    print '    version = "%s"' % rust_version
-    if 'src' in c['triples']:
-        print "    [pkg.%s.src]" % ('rust')
-        print '        url = "%s"' % c['triples']['src']['url']
-        print '        hash = "%s"' % c['triples']['src']['hash']
-        del c['triples']['src']
-    
-    exts = []
-    for t in sorted(c['triples']):
-        # Each triple has url & hash, components each with pkg and target,
-        # extensions each with pkg & target, and later installers each with
-        # type, url, and hash. 
-        print "    [pkg.%s.target.%s]" % ('rust', t)
-        print '        url = "%s"' % c['triples'][t]['url']
-        print '        hash = "%s"' % c['triples'][t]['hash']
-        for comp in sorted(c['components']):
-            if t in all_metadata[comp]['triples']:
-                # we have the version of the component that matches the
-                # triple. This handles the matching std as a component, as
-                # well.
-                print "        [[pkg.%s.target.%s.components]]" % (component, t)
-                print '            pkg = "%s"' % comp
-                print '            target = "%s"' % t
-            elif comp == 'std':
-                # this is a std for some other triple. It's an extension.
-                exts.append('        [[pkg.%s.target.%s.extensions]]' % (component, t))
-                exts.append('            pkg = "%s"' % comp)
-                exts.append('            target = "%s"' % trip)
-            elif comp != 'cargo' and comp != 'rust-docs':
-                e = "Component " + comp + ' - ' + channel + ' - ' + t + " needed but not found"
-                raise Exception(e)
-
-    for e in exts:
-            print e
-
-
-def print_component_metadata(c):
-    print "[pkg.%s]" % c
-    comp_version = all_metadata[c]['version']
-    if not isinstance(comp_version, basestring):
-        comp_version = rust_version
-    if len(comp_version) <= 3:
-        comp_version = rust_version
-    print '    version = "%s"' % comp_version
-    trips = all_metadata[c]['triples']
-    if 'src' in trips:
-        print "    [pkg.%s.src]" % c
-        print '        url = "%s"' % trips['src']['url']
-        print '        hash = "%s"' % trips['src']['hash']
-    for possibility in all_triples:
-        print '    [pkg.%s.target.%s]' % (c, possibility)
-        if possibility in trips:
-            print '        available = true'
-            print '        url = "%s"' % trips[possibility]['url']
-            print '        hash = "%s"' % trips[possibility]['hash']
-        else:
-            print '        available = false'
          
 def main():
-    # Not every component (docs, etc.) carries around the rust version string.
-    # This global holds the version string for rust proper so it can be filled in
-    # on those all_metadata which are missing it.
     m = Meta()
     m = get_arguments(m)
-    print_preamble()
     m = build_metadata(m)
     m.get_cargo() # Make a better effort to get ahold of some Cargo package info
-    # FIXME: Maybe don't assume we always have Rust? But we probably always
-    # have Rust, and its metadata is quite different from components.
-    if component != "cargo": 
-        print_rust_metadata()
-    for c in sorted(all_metadata):
-        if c != 'rust':
-            print_component_metadata(c)
+    m.print_metadata()
 
 if __name__ == "__main__":
     main()
