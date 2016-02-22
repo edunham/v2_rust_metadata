@@ -154,21 +154,25 @@ class Meta:
                 # the comp_list is from components file in the rust tarball
                 # A *component* has the same target as its parent.
                 # An *extension* has a differing target from its parent.
-                # The "components" list contains both?
+                # "extensions are rust-std or rust-docs that aren't in the
+                # rust tarball's component list"
+                listed = False
                 try:
                     self.pkgs[comp]['target'][t]['url'] # Test availability
                     print "        [[pkg.%s.target.%s.components]]" % (c, t)
                     print '            pkg = "%s"' % comp
                     print '            target = "%s"' % t
+                    listed = True
                 except KeyError:
                     # We do not have that component
                     pass
-                if comp == 'std':
+                if not listed and ('std' in comp or 'docs' in comp):
                     # this is a std for some other triple. It's an extension.
                     exts.append('        [[pkg.%s.target.%s.extensions]]' % (c, t))
                     exts.append('            pkg = "%s"' % comp)
                     exts.append('            target = "%s"' % trip)
-                elif comp != 'cargo' and comp != 'rust-docs':
+                    listed = True
+                elif not listed and comp != 'cargo' and comp != 'rust-docs':
                     e = "Component " + comp + ' - ' + channel + ' - ' + t + " needed but not found"
                     raise Exception(e)
         for e in exts:
