@@ -66,6 +66,7 @@ class Meta:
         self.directory_to_list = None
         self.pkgs = {}
         self.version = ""
+        self.datestring = strftime("%Y-%m-%d")
 
     def add_pkg(self, pkg_name, url = None, version = None):
         try:
@@ -135,7 +136,7 @@ class Meta:
     def print_preamble(self):
         # A manifest will always start with the version and date.
         print 'manifest_version = "2"' 
-        print 'date = "%s"' % strftime("%Y-%m-%d")
+        print 'date = "%s"' % self.datestring 
 
     def print_src_info(self, c):
         try:
@@ -250,7 +251,7 @@ def build_metadata(meta_obj):
             if filename.endswith(".tar.gz"):
                 (version, comp_list) = get_version_and_components_from_archive(meta_obj.directory_to_list + filename)
                 # FIXME move url calculation into the meta object
-                url = meta_obj.url_base + '/' + meta_obj.remote_dist_dir + '/' + strftime("%Y-%m-%d") + '/' + filename
+                url = meta_obj.url_base + '/' + meta_obj.remote_dist_dir + '/' + meta_obj.datestring + '/' + filename
                 meta_obj.add_pkg(this_component, url, version)
                 meta_obj.add_triple(this_component, triple, url, shasum, filename, comp_list)
             else:
