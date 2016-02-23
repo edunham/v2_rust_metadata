@@ -125,73 +125,89 @@ class Meta:
             except:
                 pass # No cargo for this date and triple
 
-    def print_metadata(self):
-        self.print_preamble() 
+    def write_manifest(self):
+        toml_name = "channel-" + self.component + '-' + self.channel + ".toml"
+        f = open(toml_name, 'w')
+        f.write(self.get_preamble())
         if self.component == "rust": 
-            self.print_rust_metadata()
+            f.write(self.get_rust_metadata())
         for c in sorted(self.pkgs):
             if c != 'rust':
-                self.print_pkg_metadata(c)
+                f.write(self.get_pkg_metadata(c))
+        f.close()
    
-    def print_preamble(self):
+    def get_preamble(self):
         # A manifest will always start with the version and date.
-        print 'manifest_version = "2"' 
-        print 'date = "%s"' % self.datestring 
+        preamble ='manifest_version = "2"\n' 
+        preamble +=  'date = "%s"\m' % self.datestring 
+        return preamble
 
-    def print_src_info(self, c):
+    def get_src_info(self, c):
+        info = ""
         try:
             url = self.pkgs[c]['src']['url'] 
             shasum = self.pkgs[c]['src']['hash'] 
-            print "    [pkg.%s.src]" % c
-            print '        url = "%s"' % url
-            print '        hash = "%s"' % shasum
+            info += "    [pkg.%s.src]\n" % c
+            info += '        url = "%s"\n' % url
+            info += '        hash = "%s"\n' % shasum
         except KeyError:
+            # It's ok not to have a src package
             pass
+        return info
 
-    def print_target_info(self, c, t):
-        print '    [pkg.%s.target.%s]' % (c, t)
+    def is_target_available(self, c, t):
+        try:
+            self.pkgs[c]['target'][t]['url']
+            return True
+        except KeyError:
+            return False
+
+    def get_target_info(self, c, t):
+        info = '    [pkg.%s.target.%s]\n' % (c, t)
         try:
             url = self.pkgs[c]['target'][t]['url']                
             sha = self.pkgs[c]['target'][t]['hash']                
-            print '        available = true'
-            print '        url = "%s"' % url
-            print '        hash = "%s"' % sha
-            return True
+            info += '        available = true\n'
+            info += '        url = "%s"\n' % url
+            info += '        hash = "%s"\n' % sha
         except KeyError:
-            print '        available = false'
-            return False
+            info += '        available = false\n'
+        return info
 
-    def print_pkg_metadata(self, c):
-        print "[pkg.%s]" % c
+    def get_pkg_metadata(self, c):
+        info = "[pkg.%s]\n" % c
         try:
             pkg_version = self.pkgs[c]['version']
             if not isinstance(pkg_version, basestring) or len(pkg_version) <= 3:
                 pkg_version = self.pkgs['rust']['version']
         except KeyError:
             pkg_version = self.pkgs['rust']['version']
-        print '    version = "%s"' % pkg_version
-        self.print_src_info(c)
+        info += '    version = "%s"\n' % pkg_version
+        info += self.get_src_info(c)
         for t in target_list:
-            self.print_target_info(c, t)
+            info += self.get_target_info(c, t)
+        return info
 
-    def print_rust_metadata(self):
+    def get_rust_metadata(self):
         c = 'rust'
-        print "[pkg.rust]"
+        info = "[pkg.rust]\n"
         rust_version = self.pkgs['rust']['version']
         if not isinstance(rust_version, basestring):
             e = "No rust-" + self.channel + "-*.tgz packages were found in " + self.directory_to_list
             raise Exception(e)
-        print '    version = "%s"' % rust_version
-        self.print_src_info(c) 
+        info += '    version = "%s"\n' % rust_version
+        info += self.get_src_info(c) 
         for t in target_list:
             target = t
-            if self.print_target_info(c, t): # T/F = whether it's available
+            if self.is_target_available(c, t): # T/F = whether it's available
+                info += self.get_target_info(c,t)
                 for comp in sorted(self.pkgs['rust']['target'][target]['components']):
-                    print "        [[pkg.%s.target.%s.components]]" % (c, t)
-                    print '            pkg = "%s"' % comp
-                    print '            target = "%s"' % target
+                    info += "        [[pkg.%s.target.%s.components]]\n" % (c, t)
+                    info += '            pkg = "%s"\n' % comp
+                    info += '            target = "%s"\n' % target
                 # TODO extension logic goes here. Loop over all available
                 # platforms for std and docs, etc
+        return info
 
 def debug(words):
     # print words
@@ -314,7 +330,7 @@ def main():
         m.get_cargo() # Make a better effort to get ahold of some Cargo package info
     except:
         pass
-    m.print_metadata()
+    m.write_manifest()
 
 if __name__ == "__main__":
     main()
