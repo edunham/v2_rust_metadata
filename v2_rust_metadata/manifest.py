@@ -50,6 +50,13 @@ valid_components = [
                     ]
 valid_components.sort(key=len)
 
+installer_exts = [
+                 ".tar.gz",
+                 ".msi",
+                 ".exe",
+                 ".pkg",
+                 ]
+
 class Meta:
     def __init__(self):
         self.component = None
@@ -244,10 +251,15 @@ def get_arguments(meta_obj):
         meta_obj.url_base = "https://static.rust-lang.org"
     return meta_obj
 
+def is_tarball_or_installer(f):
+    for ext in installer_exts:
+        if f.endswith(ext):
+            return True
+    return False
 
 def build_metadata(meta_obj):
     files = [f for f in os.listdir(meta_obj.directory_to_list) if os.path.isfile(meta_obj.directory_to_list + f)]
-    archives = [f for f in files if f.endswith('.tar.gz')]
+    archives = [f for f in files if is_tarball_or_installer(f)]
     for filename in archives:
         d = decompose_name(filename, meta_obj.channel)
         # d will return None if the archive is not in the channel we want
@@ -262,7 +274,7 @@ def build_metadata(meta_obj):
                 shasum = h.hexdigest()
             (version, comp_list) = get_version_and_components_from_archive(meta_obj.directory_to_list + filename)
             # FIXME move url calculation into the meta object
-            url = meta_obj.url_base + '/' + meta_obj.remote_dist_dir + '/' + strftime("%Y-%m-%d") + '/' + filename 
+            url = meta_obj.url_base + '/' + meta_obj.remote_dist_dir + '/' + strftime("%Y-%m-%d") + '/' + filename
             meta_obj.add_pkg(this_component, url, version)
             meta_obj.add_triple(this_component, triple, url, shasum, filename, comp_list)
     return meta_obj
