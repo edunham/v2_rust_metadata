@@ -249,11 +249,15 @@ def build_metadata(meta_obj):
                 h = hashlib.sha256()
                 h.update(s.read())
                 shasum = h.hexdigest()
-            (version, comp_list) = get_version_and_components_from_archive(meta_obj.directory_to_list + filename)
-            # FIXME move url calculation into the meta object
-            url = meta_obj.url_base + '/' + meta_obj.remote_dist_dir + '/' + strftime("%Y-%m-%d") + '/' + filename
-            meta_obj.add_pkg(this_component, url, version)
-            meta_obj.add_triple(this_component, triple, url, shasum, filename, comp_list)
+            if filename.endswith(".tar.gz"):
+                (version, comp_list) = get_version_and_components_from_archive(meta_obj.directory_to_list + filename)
+                # FIXME move url calculation into the meta object
+                url = meta_obj.url_base + '/' + meta_obj.remote_dist_dir + '/' + strftime("%Y-%m-%d") + '/' + filename
+                meta_obj.add_pkg(this_component, url, version)
+                meta_obj.add_triple(this_component, triple, url, shasum, filename, comp_list)
+            else:
+                # TODO this is where handling installers will go
+                pass
     return meta_obj
 
 def decompose_name(filename, channel):
