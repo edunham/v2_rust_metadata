@@ -90,8 +90,6 @@ class Meta:
         try:
             if triple == 'src':
                 self.pkgs[pkg_name]['src'][triple] = {'url': url,'hash': shasum, 'filename': filename}
-                if comp_list:
-                    self.pkgs[pkg_name]['src'][triple]['components'] = comp_list
             self.pkgs[pkg_name]['target'][triple] = {'url': url,'hash': shasum, 'filename': filename}
             if comp_list:
                 self.pkgs[pkg_name]['target'][triple]['components'] = comp_list
