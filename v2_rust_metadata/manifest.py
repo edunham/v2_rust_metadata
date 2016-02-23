@@ -109,6 +109,8 @@ class Meta:
     def get_cargo(self):
         self.add_pkg('cargo')
         # Cargo is built daily and dumped into baseurl/cargo-dist/
+        # TODO find cargo_revs.txt in rust_packaging repo, consult when not
+        # nightly
         response = urllib2.urlopen(self.url_base + "/cargo-dist/cargo-build-date.txt")
         cargo_date = response.read().split()[0]
         #try: # TODO read the toml manifest if it's there
@@ -184,13 +186,9 @@ class Meta:
             target = t
             if self.print_target_info(c, t): # T/F = whether it's available
                 for comp in sorted(self.pkgs['rust']['target'][target]['components']):
-                    # "extensions are rust-std or rust-docs that aren't in the
-                    # rust tarball's component list"
-                    self.pkgs[comp]['target'][target]['url'] # Test availability
                     print "        [[pkg.%s.target.%s.components]]" % (c, t)
                     print '            pkg = "%s"' % comp
                     print '            target = "%s"' % target
-                    listed = True
                 # TODO extension logic goes here. Loop over all available
                 # platforms for std and docs, etc
 
