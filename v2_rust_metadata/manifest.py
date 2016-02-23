@@ -22,7 +22,7 @@ from collections import defaultdict
 # r     remote_dist_dir
 # s     s3_addy
 
-target_list = [ 
+target_list = sorted([ 
     "aarch64-unknown-linux-gnu",
     "arm-linux-androideabi",
     "arm-unknown-linux-gnueabif",
@@ -38,7 +38,7 @@ target_list = [
     "x86_64-pc-windows-msvc",
     "x86_64-unknown-linux-gnu",
     "x86_64-unknown-linux-musl",
-]
+])
 
 valid_components = [
                     "cargo",
@@ -92,7 +92,16 @@ class Meta:
                 self.pkgs[pkg_name]['src'][triple] = {'url': url,'hash': shasum, 'filename': filename}
             self.pkgs[pkg_name]['target'][triple] = {'url': url,'hash': shasum, 'filename': filename}
             if comp_list:
-                self.pkgs[pkg_name]['target'][triple]['components'] = comp_list
+                self.pkgs[pkg_name]['target'][triple]['components'] = [] 
+                for c in comp_list:
+                    if c not in valid_components:
+                        d = decompose_name(c, '-')
+                        if d:
+                            (target, comp) = d
+                            self.pkgs[pkg_name]['target'][triple]['components'].append(comp)
+                        else:
+                            e = "Found mystery filename " + c + " in " + filename + " component list"
+                            raise Exception(e) 
         except KeyError:
             e = "Tried to add triple " + triple + " to nonexistant package " + pkg_name
             raise Exception(e) 
@@ -115,7 +124,7 @@ class Meta:
 
     def print_metadata(self):
         self.print_preamble() 
-        if self.component != "cargo": 
+        if self.component == "rust": 
             self.print_rust_metadata()
         for c in sorted(self.pkgs):
             if c != 'rust':
@@ -159,7 +168,7 @@ class Meta:
             pkg_version = self.pkgs['rust']['version']
         print '    version = "%s"' % pkg_version
         self.print_src_info(c)
-        for t in sorted(target_list):
+        for t in target_list:
             self.print_target_info(c, t)
 
     def print_rust_metadata(self):
@@ -171,45 +180,19 @@ class Meta:
             raise Exception(e)
         print '    version = "%s"' % rust_version
         self.print_src_info(c) 
-        exts = []
-        for t in sorted(target_list):
+        for t in target_list:
             target = t
             if self.print_target_info(c, t): # T/F = whether it's available
                 for comp in sorted(self.pkgs['rust']['target'][target]['components']):
-                    if comp not in valid_components:
-                       try:
-                            (target, comp) = decompose_name(comp, '-')
-                       except: 
-                            e = "components list asked for " + comp + ", wat?"
-                            raise Exception(e) 
-                    # the comp_list is from components file in the rust tarball
-                    # A *component* has the same target as its parent.
-                    # An *extension* has a differing target from its parent.
                     # "extensions are rust-std or rust-docs that aren't in the
                     # rust tarball's component list"
-                    listed = False
-                    try:
-                        self.pkgs[comp]['target'][target]['url'] # Test availability
-                        print "        [[pkg.%s.target.%s.components]]" % (c, t)
-                        print '            pkg = "%s"' % comp
-                        print '            target = "%s"' % target
-                        listed = True
-                    except KeyError:
-                        # We do not have that component
-                        pass
-                    if not listed and ('std' in comp or 'docs' in comp):
-                        # this is a std for some other triple. It's an extension.
-                        exts.append('        [[pkg.%s.target.%s.extensions]]' % (c, t))
-                        exts.append('            pkg = "%s"' % comp)
-                        exts.append('            target = "%s"' % t)
-                        listed = True
-                    elif not listed and 'cargo' not in comp and 'docs' not in comp:
-                        e = "Component " + comp + ' - ' + self.channel + ' - ' + t + " needed but not found"
-                        # raise Exception(e)
-                        pass
-                for e in exts:
-                    print e
-
+                    self.pkgs[comp]['target'][target]['url'] # Test availability
+                    print "        [[pkg.%s.target.%s.components]]" % (c, t)
+                    print '            pkg = "%s"' % comp
+                    print '            target = "%s"' % target
+                    listed = True
+                # TODO extension logic goes here. Loop over all available
+                # platforms for std and docs, etc
 
 def debug(words):
     # print words
