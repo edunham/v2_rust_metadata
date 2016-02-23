@@ -98,11 +98,7 @@ class Meta:
             raise Exception(e) 
 
     def get_cargo(self):
-        try:
-            if self.pkgs['cargo']['url']:
-                return # Cargo's here already??
-        except KeyError: 
-            self.add_pkg('cargo')
+        self.add_pkg('cargo')
         # Cargo is built daily and dumped into baseurl/cargo-dist/
         response = urllib2.urlopen(self.url_base + "/cargo-dist/cargo-build-date.txt")
         cargo_date = response.read().split()[0]
