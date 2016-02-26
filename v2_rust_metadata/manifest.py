@@ -67,6 +67,7 @@ class Meta:
         self.pkgs = {}
         self.version = ""
         self.datestring = strftime("%Y-%m-%d")
+        self.rustversion = "unknown"
 
     def add_pkg(self, pkg_name, url = None, version = None):
         try:
@@ -83,6 +84,8 @@ class Meta:
                 d[t] = {}
             if version:
                 self.pkgs[pkg_name]['version'] = version
+                if pkg_name == 'rust':
+                    self.rustversion = version
             self.pkgs[pkg_name]['url'] = url
             self.pkgs[pkg_name]['src'] = {} 
             self.pkgs[pkg_name]['target'] = d
@@ -179,9 +182,9 @@ class Meta:
         try:
             pkg_version = self.pkgs[c]['version']
             if not isinstance(pkg_version, basestring) or len(pkg_version) <= 3:
-                pkg_version = self.pkgs['rust']['version']
+                pkg_version = self.rustversion
         except KeyError:
-            pkg_version = self.pkgs['rust']['version']
+            pkg_version = self.rustversion
         info += '    version = "%s"\n' % pkg_version
         info += self.get_src_info(c)
         for t in target_list:
@@ -191,11 +194,7 @@ class Meta:
     def get_rust_metadata(self):
         c = 'rust'
         info = "[pkg.rust]\n"
-        rust_version = self.pkgs['rust']['version']
-        if not isinstance(rust_version, basestring):
-            e = "No rust-" + self.channel + "-*.tgz packages were found in " + self.directory_to_list
-            raise Exception(e)
-        info += '    version = "%s"\n' % rust_version
+        info += '    version = "%s"\n' % self.rustversion
         info += self.get_src_info(c) 
         for t in target_list:
             target = t
