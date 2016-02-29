@@ -142,7 +142,7 @@ class Meta:
     def get_preamble(self):
         # A manifest will always start with the version and date.
         preamble ='manifest_version = "2"\n' 
-        preamble +=  'date = "%s"\m' % self.datestring 
+        preamble +=  'date = "%s"\n' % self.datestring 
         return preamble
 
     def get_src_info(self, c):
