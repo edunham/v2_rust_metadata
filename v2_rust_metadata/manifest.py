@@ -48,6 +48,7 @@ valid_components = [
                     "rust-std",
                     "rustc",
                     ]
+
 valid_components.sort(key=len)
 
 installer_exts = [
@@ -68,6 +69,7 @@ class Meta:
         self.version = ""
         self.datestring = strftime("%Y-%m-%d")
         self.rustversion = "unknown"
+        self.debug = True
 
     def add_pkg(self, pkg_name, url = None, version = None):
         try:
@@ -91,6 +93,10 @@ class Meta:
             self.pkgs[pkg_name]['target'] = d
 
     def add_triple(self, pkg_name, triple, url, shasum, filename, comp_list = None):
+        if self.debug:
+            print "Adding triple: "
+            print "\t" + pkg_name + ' ' + triple + ' ' + url + ' ' + filename
+
         try:
             if triple == 'src':
                 self.pkgs[pkg_name]['src'][triple] = {'url': url,'hash': shasum, 'filename': filename}
@@ -117,16 +123,16 @@ class Meta:
         # nightly
         response = urllib2.urlopen(self.url_base + "/cargo-dist/cargo-build-date.txt")
         cargo_date = response.read().split()[0]
-        #try: # TODO read the toml manifest if it's there
-        #    cargo_toml = urllib2.urlopen(self.url_base + "/cargo-dist/" + cargo_date + "/channel-")
+        # TODO read the toml manifest if it's there
         for t in target_list:
+            filename = "cargo-" + self.channel + "-" + t + ".tar.gz"
             try:
-                filename = "cargo-" + self.channel + "-" + t + ".tar.gz"
                 url = self.url_base + "/cargo-dist/" + cargo_date + "/" + filename
                 shasum = urllib2.urlopen(url + ".sha256").read().split()[0]
                 self.add_triple('cargo', t, url, shasum, filename)
             except:
-                pass # No cargo for this date and triple
+                if self.debug:
+                    print "No cargo found for " + filename
 
     def write_manifest(self):
         toml_name = "channel-" + self.component + '-' + self.channel + ".toml"
@@ -154,7 +160,9 @@ class Meta:
             info += '        url = "%s"\n' % url
             info += '        hash = "%s"\n' % shasum
         except KeyError:
-            # It's ok not to have a src package
+            # It's ok not to have a src package. Warn for now.
+            if self.debug:
+                print "No src package found for " + c
             pass
         return info
 
@@ -184,6 +192,8 @@ class Meta:
             if not isinstance(pkg_version, basestring) or len(pkg_version) <= 3:
                 pkg_version = self.rustversion
         except KeyError:
+            if self.debug:
+                print "No package version found for " + c + ", using Rust version"
             pkg_version = self.rustversion
         info += '    version = "%s"\n' % pkg_version
         info += self.get_src_info(c)
@@ -207,10 +217,6 @@ class Meta:
                 # TODO extension logic goes here. Loop over all available
                 # platforms for std and docs, etc
         return info
-
-def debug(words):
-    # print words
-    pass
 
 
 def get_arguments(meta_obj):
